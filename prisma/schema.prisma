@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql" 
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==========================================
+// 1. TABEL PENGGUNA (ADMIN & PENULIS)
+// ==========================================
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   
+  name      String   
+  role      String   @default("AUTHOR") 
+  novels    Novel[]  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 2. TABEL PENGATURAN WEBSITE
+// ==========================================
+model Settings {
+  id                  Int     @id @default(1)
+  siteName            String
+  adminEmail          String? // <--- LACI BARU UNTUK EMAIL ADMIN
+  adminPassword       String?
+  runningText         String?
+  isActive            Boolean @default(true)
+  copyrightText       String?
+  email               String?
+  whatsappNumber      String?
+  visiPenulis         String?
+  kekuatanPembaca     String?
+  isOpenForWriters    Boolean @default(true)
+  writerHeroTitle     String?
+  writerHeroDesc      String?
+  writerTerms         String?
+  writerBenefit1Title String?
+  writerBenefit1Desc  String?
+  writerBenefit2Title String?
+  writerBenefit2Desc  String?
+  writerBenefit3Title String?
+  writerBenefit3Desc  String?
+  writerBenefit4Title String?
+  writerBenefit4Desc  String?
+
+  // LACI PENGUMUMAN DASBOR PENULIS
+  authorAnnounce1Title String?
+  authorAnnounce1Desc  String?
+  authorAnnounce2Title String?
+  authorAnnounce2Desc  String?
+  promoPremiumTitle    String?
+  promoPremiumDesc     String?
+}
+
+// ==========================================
+// 3. TABEL NOVEL (DENGAN FITUR SOROTAN)
+// ==========================================
+model Novel {
+  id                String   @id @default(cuid())
+  title             String
+  slug              String   @unique
+  synopsis          String
+  coverImage        String?
+  status            String   @default("Ongoing")
+  genre             String
+  youtubeTrailer    String?
+  author            String   @default("Lutfi Abdulloh")
+  authorDonationUrl String?
+  views             Int      @default(0)
+  
+  // FITUR PROMOSI BERBAYAR & SOROTAN UTAMA
+  isFeatured        Boolean   @default(false)
+  featuredUntil     DateTime? 
+  
+  userId            String?
+  user              User?     @relation(fields: [userId], references: [id])
+
+  chapters          Chapter[]
+  ratings           Rating[]
+  externalLinks     ExternalLink[]
+  authorSocials     AuthorSocial[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@index([slug])
+}
+
+// ==========================================
+// 4. TABEL BAB NOVEL
+// ==========================================
+model Chapter {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String
+  orderIndex  Int      @default(1)
+  isLocked    Boolean  @default(false)
+  isPublished Boolean  @default(true)
+  publishAt   DateTime? @default(now()) 
+  payLink     String?
+  unlockCode  String?
+  novelId     String
+  novel       Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==========================================
+// 5. TABEL INTERAKSI & PENDUKUNG
+// ==========================================
+model Rating {
+  id        String   @id @default(cuid())
+  value     Int
+  novelId   String
+  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  name      String
+  content   String
+  chapterId String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model ExternalLink {
+  id        String   @id @default(cuid())
+  title     String
+  url       String
+  novelId   String
+  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+}
+
+model AuthorSocial {
+  id        String   @id @default(cuid())
+  platform  String
+  url       String
+  novelId   String
+  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+}
+
+model SocialLink {
+  id       String @id @default(cuid())
+  platform String
+  url      String
+}
+
+model DonationLink {
+  id       String @id @default(cuid())
+  platform String
+  url      String
+}
+
+model Sponsor {
+  id          String  @id @default(cuid())
+  title       String
+  imageUrl    String
+  linkUrl     String
+  description String?
+}
+
+// ==========================================
+// 6. KEAMANAN & VERIFIKASI
+// ==========================================
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String   
+  token     String   @unique 
+  expires   DateTime 
+  @@unique([email, token])
+}
