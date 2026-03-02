@@ -141,7 +141,9 @@ export async function createNovel(formData: FormData) {
     if (!slug || slug.trim() === "") slug = generateSlug(title);
     else slug = generateSlug(slug); // Membersihkan input aneh dari user
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const author = (formData.get("author") as string)?.trim() || "Lutfi Abdulloh"; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
+    // PERBAIKAN FINAL: Menambahkan || "" pada synopsis agar tidak null
+    const synopsis = (formData.get("synopsis") as string) || ""; 
+    const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const author = (formData.get("author") as string)?.trim() || "Lutfi Abdulloh"; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
     const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
     
     await db.novel.create({ data: { title, slug, synopsis, coverImage, status, genre, youtubeTrailer, author, authorDonationUrl } }); 
@@ -164,7 +166,9 @@ export async function updateNovel(id: string, formData: FormData) {
     if (!slug || slug.trim() === "") slug = generateSlug(title);
     else slug = generateSlug(slug);
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const author = (formData.get("author") as string)?.trim() || "Lutfi Abdulloh"; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null;
+    // PERBAIKAN FINAL: Menambahkan || "" pada synopsis agar tidak null
+    const synopsis = (formData.get("synopsis") as string) || ""; 
+    const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const author = (formData.get("author") as string)?.trim() || "Lutfi Abdulloh"; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null;
     const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
     
     await db.novel.update({ where: { id }, data: { title, slug, synopsis, coverImage, status, genre, youtubeTrailer, author, authorDonationUrl } }); 
@@ -335,7 +339,9 @@ export async function createNovelByAuthor(formData: FormData) {
     if (!slug || slug.trim() === "") slug = generateSlug(title);
     else slug = generateSlug(slug);
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
+    // PERBAIKAN FINAL: Menambahkan || "" pada synopsis agar tidak null
+    const synopsis = (formData.get("synopsis") as string) || ""; 
+    const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
     const user = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
     const authorName = user?.name || "Penulis Tanpa Nama";
     const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
@@ -365,7 +371,9 @@ export async function updateNovelByAuthor(id: string, formData: FormData) {
     if (!slug || slug.trim() === "") slug = generateSlug(title);
     else slug = generateSlug(slug);
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null;
+    // PERBAIKAN FINAL: Menambahkan || "" pada synopsis agar tidak null
+    const synopsis = (formData.get("synopsis") as string) || ""; 
+    const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null;
     const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
     
     await db.novel.update({ where: { id }, data: { title, slug, synopsis, coverImage, status, genre, youtubeTrailer, authorDonationUrl } }); 
