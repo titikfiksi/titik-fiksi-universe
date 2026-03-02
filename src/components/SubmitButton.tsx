@@ -7,21 +7,24 @@ interface SubmitButtonProps {
   text: string;
   icon?: React.ReactNode;
   customClass?: string;
+  isEdit?: boolean; // Untuk kompabilitas dengan kode Anda sebelumnya
 }
 
-export default function SubmitButton({ text, icon, customClass }: SubmitButtonProps) {
-  // Sensor ini akan otomatis mendeteksi apakah form sedang memproses data
+export default function SubmitButton({ text, icon, customClass, isEdit }: SubmitButtonProps) {
+  // Hook ini mendeteksi apakah form sedang memproses data ke server
   const { pending } = useFormStatus();
 
+  // Jika tidak ada customClass yang dikirim, gunakan style bawaan ini
+  const defaultClass = "bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md";
+
   return (
-    <button 
-      type="submit" 
-      disabled={pending} 
-      className={`${customClass} ${pending ? 'opacity-80 cursor-wait pointer-events-none scale-95' : ''}`}
+    <button
+      type="submit"
+      disabled={pending}
+      className={`${customClass || defaultClass} ${pending ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}
     >
-      {/* Jika loading, tampilkan spinner. Jika tidak, tampilkan ikon bawaan */}
-      {pending ? <Loader2 size={18} className="animate-spin text-current" /> : icon}
-      <span>{pending ? 'Memproses...' : text}</span>
+      {pending ? <Loader2 className="animate-spin" size={16} /> : icon}
+      {pending ? "Menyimpan..." : text}
     </button>
   );
 }

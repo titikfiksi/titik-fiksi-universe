@@ -7,7 +7,14 @@ import { UserCircle, Mail, KeyRound, Save, ShieldCheck, ArrowLeft, Lock } from "
 import { updateAuthorProfile } from "@/lib/actions";
 import PasswordInput from "@/components/PasswordInput"; // <-- Memanggil Komponen Mata
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "TF_UNIVERSE_SECRET_KEY_2026_SAFE");
+// ======================================================================
+// PERBAIKAN TAHAP 1: KEAMANAN JWT (Tanpa Fallback Hardcoded)
+// ======================================================================
+const secretKey = process.env.JWT_SECRET;
+if (!secretKey) {
+  throw new Error("JWT_SECRET tidak ditemukan di environment variables!");
+}
+const JWT_SECRET = new TextEncoder().encode(secretKey);
 
 export const dynamic = "force-dynamic";
 

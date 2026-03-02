@@ -1,9 +1,27 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { PenTool } from "lucide-react";
+import { unstable_cache } from "next/cache";
+
+// OPTIMASI TAHAP 3.1: Caching + Error Handling Kuat
+// Hasil query disimpan di memori server, dan tidak akan crash jika DB gagal merespons
+const getCachedSettings = unstable_cache(
+  async () => {
+    try {
+      return await db.settings.findFirst({
+        select: { siteName: true, isOpenForWriters: true } 
+      });
+    } catch (error) {
+      console.error("Gagal memuat pengaturan Header:", error);
+      return null; // Mengembalikan null agar website tetap berjalan
+    }
+  },
+  ['header-settings'], 
+  { revalidate: 60 }   
+);
 
 export default async function Header() {
-  const settings = await db.settings.findFirst();
+  const settings = await getCachedSettings();
   const isWriterOpen = settings?.isOpenForWriters ?? true;
   
   return (
@@ -23,7 +41,6 @@ export default async function Header() {
           <Link href="/" className="hover:text-blue-600 transition">Beranda</Link>
           <Link href="/toko" className="hover:text-blue-600 transition">Toko & Dukungan</Link>
           
-          {/* MENU SPONSORSHIP (UNGU) */}
           <Link href="/partnership" className="text-purple-600 hover:text-purple-800 transition">
             Sponsorship
           </Link>
@@ -33,7 +50,6 @@ export default async function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* TOMBOL GABUNG PENULIS (HIJAU) */}
           {isWriterOpen && (
             <Link 
               href="/kirim-karya" 

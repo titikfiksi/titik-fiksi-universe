@@ -8,7 +8,14 @@ import SubmitButton from "@/components/SubmitButton";
 import { updateChapterByAuthor } from "@/lib/actions";
 import EditorWrapper from "@/components/EditorWrapper";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "TF_UNIVERSE_SECRET_KEY_2026_SAFE");
+// ======================================================================
+// PERBAIKAN TAHAP 1: KEAMANAN JWT (Tanpa Fallback Hardcoded)
+// ======================================================================
+const secretKey = process.env.JWT_SECRET;
+if (!secretKey) {
+  throw new Error("JWT_SECRET tidak ditemukan di environment variables!");
+}
+const JWT_SECRET = new TextEncoder().encode(secretKey);
 
 export default async function AuthorEditChapterPage({ params }: { params: { slug: string, chapterId: string } }) {
   const token = cookies().get("admin_session")?.value;
@@ -40,7 +47,7 @@ export default async function AuthorEditChapterPage({ params }: { params: { slug
       </div>
 
       <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-gray-200 shadow-sm relative overflow-hidden">
-        <form action={updateWithParams} className="space-y-6">
+        <form id="novelForm" action={updateWithParams} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             <div className="md:col-span-2 space-y-2">
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest">No. Bab</label>
@@ -83,17 +90,13 @@ export default async function AuthorEditChapterPage({ params }: { params: { slug
                </div>
                
                <div className="flex justify-end pt-4">
-                 <SubmitButton text="Simpan Revisi" />
+                 <SubmitButton text="Simpan Revisi" customClass="bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-indigo-700 transition shadow-sm text-sm" />
                </div>
 
              </div>
           </div>
         </form>
-        <script dangerouslySetInnerHTML={{ __html: `document.getElementById('titleInput').addEventListener('input', function(e) { document.getElementById('slugInput').value = e.target.value.toLowerCase().trim().replace(/[^a-z0-9\\s-]/g, '').replace(/\\s+/g, '-').replace(/-+/g, '-'); });`}} />
-      </div>
-    </div>
-  );
-}
+
         {/* PERBAIKAN SCRIPT: Otomatisasi saat mengetik & saat tombol Save ditekan */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function() {
@@ -103,8 +106,8 @@ export default async function AuthorEditChapterPage({ params }: { params: { slug
 
             function generateSlug(text) {
               return text.toLowerCase().trim()
-                .replace(/[^a-z0-9\\s-]/g, '')
-                .replace(/\\s+/g, '-')
+                .replace(/[^a-z0-9\\\\s-]/g, '')
+                .replace(/\\\\s+/g, '-')
                 .replace(/-+/g, '-');
             }
 
@@ -125,3 +128,7 @@ export default async function AuthorEditChapterPage({ params }: { params: { slug
             }
           })();
         `}} />
+      </div>
+    </div>
+  );
+}

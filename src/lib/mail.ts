@@ -8,10 +8,11 @@ interface SendMailParams {
 
 export const sendMail = async ({ to, subject, html }: SendMailParams) => {
   try {
+    // PERBAIKAN TAHAP 1: Menghapus fallback "smtp.gmail.com" dan port default
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: Number(process.env.SMTP_PORT) || 465,
-      secure: true, // true untuk port 465, false untuk port lain
+      host: process.env.SMTP_HOST, 
+      port: Number(process.env.SMTP_PORT),
+      secure: true, 
       auth: {
         user: process.env.SMTP_EMAIL,
         pass: process.env.SMTP_PASSWORD,
@@ -19,6 +20,7 @@ export const sendMail = async ({ to, subject, html }: SendMailParams) => {
     });
 
     const mailOptions = {
+      // Menggunakan variabel lingkungan untuk alamat pengirim
       from: `"Titik Fiksi Universe" <${process.env.SMTP_EMAIL}>`,
       to,
       subject,

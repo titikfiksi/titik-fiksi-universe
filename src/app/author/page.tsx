@@ -5,7 +5,14 @@ import Link from "next/link";
 import { Plus, BookOpen, Eye, Crown, Megaphone, ArrowRight, ShieldCheck, ChevronRight } from "lucide-react";
 import { redirect } from "next/navigation";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "TF_UNIVERSE_SECRET_KEY_2026_SAFE");
+// ======================================================================
+// PERBAIKAN TAHAP 1: KEAMANAN JWT (Tanpa Fallback Hardcoded)
+// ======================================================================
+const secretKey = process.env.JWT_SECRET;
+if (!secretKey) {
+  throw new Error("JWT_SECRET tidak ditemukan di environment variables!");
+}
+const JWT_SECRET = new TextEncoder().encode(secretKey);
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +97,6 @@ export default async function AuthorDashboardPage() {
               <Crown size={12} className="fill-amber-400"/> Fitur Eksklusif
             </div>
             <h2 className="text-2xl font-black text-white mb-2 leading-tight">
-               {/* Memecah judul menjadi dua warna seperti desain sebelumnya jika ada spasi terakhir */}
                {settings?.promoPremiumTitle ? (
                  <>
                    {settings.promoPremiumTitle.split(' ').slice(0, -2).join(' ')} <span className="text-amber-400">{settings.promoPremiumTitle.split(' ').slice(-2).join(' ')}</span>

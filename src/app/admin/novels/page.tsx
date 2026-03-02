@@ -6,10 +6,19 @@ import { toggleFeaturedNovel } from "@/lib/actions";
 export const dynamic = "force-dynamic";
 
 export default async function AdminNovelsListPage() {
-  // Ambil semua novel untuk didaftarkan
+  // OPTIMASI TAHAP 3: Hindari mengambil seluruh data novel (seperti sinopsis dll)
+  // Hanya ambil field (kolom) yang benar-benar akan dirender ke dalam HTML
   const novels = await db.novel.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { _count: { select: { chapters: true } } }
+    select: {
+      id: true,
+      title: true,
+      coverImage: true,
+      views: true,
+      author: true,
+      isFeatured: true,
+      _count: { select: { chapters: true } }
+    }
   });
 
   // FUNGSI PEMBUNGKUS (Solusi untuk mengatasi Error TypeScript Vercel)

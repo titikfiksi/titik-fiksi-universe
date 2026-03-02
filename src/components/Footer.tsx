@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { unstable_cache } from "next/cache";
 import { Instagram, Twitter, Facebook, Mail, Link as LinkIcon, Youtube, MessageCircle } from "lucide-react";
 
 // Komponen Ikon TikTok Kustom
@@ -21,9 +22,29 @@ function getIcon(platform: string, size = 20) {
   return <LinkIcon size={size} />;
 }
 
+// ======================================================================
+// OPTIMASI FINAL: Caching Footer agar tidak berebut koneksi dengan Header
+// ======================================================================
+const getCachedFooterData = unstable_cache(
+  async () => {
+    try {
+      const [settings, socialLinks] = await Promise.all([
+        db.settings.findFirst(),
+        db.socialLink.findMany()
+      ]);
+      return { settings, socialLinks };
+    } catch (error) {
+      console.error("Gagal memuat data Footer:", error);
+      return { settings: null, socialLinks: [] }; // Fallback aman
+    }
+  },
+  ['footer-data-cache'],
+  { revalidate: 60 } // Disimpan di memori selama 60 detik
+);
+
 export default async function Footer() {
-  const settings = await db.settings.findFirst();
-  const socialLinks = await db.socialLink.findMany();
+  // Menggunakan data dari memori (Cache), bukan tembak langsung ke Database
+  const { settings, socialLinks } = await getCachedFooterData();
 
   // Membaca status sakelar pendaftaran dari database
   const isWriterOpen = settings?.isOpenForWriters ?? true;

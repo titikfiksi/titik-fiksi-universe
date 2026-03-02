@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import ProductSlider from "@/components/ProductSlider";
 import { ExternalLink, Heart, ShoppingBag, Wrench } from "lucide-react";
 
-export const revalidate = 0; 
+export const revalidate = 60; 
 
 export default async function TokoPage() {
   const [settings, donations, sponsors] = await Promise.all([

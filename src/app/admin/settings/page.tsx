@@ -5,12 +5,36 @@ import { Settings, Type, Link as LinkIcon, Save, Plus, Heart, MessageCircle, Pen
 import DeleteButton from "@/components/DeleteButton";
 import SubmitButton from "@/components/SubmitButton";
 import MultiImageInput from "@/components/MultiImageInput";
-import PasswordInput from "@/components/PasswordInput"; // <-- Memanggil Komponen Mata
+import PasswordInput from "@/components/PasswordInput";
+
+export const dynamic = "force-dynamic";
 
 export default async function SettingsPage({ searchParams }: { searchParams: { tab?: string } }) {
-  const [settings, socials, donations, sponsors] = await Promise.all([
-    db.settings.findFirst(), db.socialLink.findMany(), db.donationLink.findMany(), db.sponsor.findMany()
-  ]);
+  
+  // ======================================================================
+  // PERBAIKAN FINAL: Menggunakan $transaction (Bukan Promise.all)
+  // Ini memastikan ke-4 query ini HANYA memakan 1 koneksi database,
+  // sehingga sangat aman saat tombol "Simpan" ditekan dan halaman di-refresh.
+  // ======================================================================
+  let settings = null;
+  let socials = [];
+  let donations = [];
+  let sponsors = [];
+
+  try {
+    const results = await db.$transaction([
+      db.settings.findFirst(),
+      db.socialLink.findMany(),
+      db.donationLink.findMany(),
+      db.sponsor.findMany()
+    ]);
+    settings = results[0];
+    socials = results[1];
+    donations = results[2];
+    sponsors = results[3];
+  } catch (error) {
+    console.error("Gagal memuat data pengaturan:", error);
+  }
 
   const activeTab = searchParams.tab || "beranda";
 
@@ -31,7 +55,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
             <Home size={18} /> Beranda
           </Link>
           
-          {/* TAB BARU: PENGATURAN AKUN (TERPISAH) */}
           <Link href="?tab=akun" className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'akun' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
             <UserCog size={18} /> Pengaturan Akun
           </Link>
@@ -56,7 +79,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
         {/* KONTEN TAB */}
         <div className="md:col-span-3 space-y-8">
           
-          {/* TAB 1: BERANDA (Tanpa Password) */}
+          {/* TAB 1: BERANDA */}
           {activeTab === "beranda" && (
             <form action={updateSettings} className="bg-white rounded-[2.5rem] border border-gray-200 shadow-sm overflow-hidden animate-fade-in-up">
               <input type="hidden" name="activeTab" value="beranda" />
@@ -94,7 +117,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
             </form>
           )}
 
-          {/* TAB 2: PENGATURAN AKUN (Tab Baru) */}
+          {/* TAB 2: PENGATURAN AKUN */}
           {activeTab === "akun" && (
             <form action={updateSettings} className="bg-white rounded-[2.5rem] border border-red-200 shadow-sm overflow-hidden animate-fade-in-up">
               <input type="hidden" name="activeTab" value="akun" />
@@ -117,21 +140,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Password Baru (Opsional)</label>
-                    {/* MEMAKAI KOMPONEN MATA */}
                     <PasswordInput name="newAdminPassword" placeholder="Kosongkan jika tidak diubah" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500 font-bold placeholder:font-normal text-sm" />
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-gray-100 w-full md:w-1/2">
                   <label className="block text-[10px] font-black text-red-600 flex items-center gap-1 uppercase tracking-widest mb-2"><Lock size={12}/> Konfirmasi Password Saat Ini</label>
-                  {/* MEMAKAI KOMPONEN MATA */}
                   <PasswordInput name="oldAdminPassword" placeholder="Wajib diisi untuk menyimpan perubahan" className="w-full px-4 py-3 bg-red-50 border border-red-200 rounded-xl outline-none focus:ring-2 focus:ring-red-600 text-sm placeholder:text-red-300" />
                 </div>
               </div>
             </form>
           )}
 
-          {/* TAB LAINNYA TETAP UTUH (TOKO, TENTANG, KONTAK, PENULIS, DASBOR KREATOR) */}
+          {/* TAB TOKO */}
           {activeTab === "toko" && (
              <div className="space-y-8 animate-fade-in-up">
               <div className="bg-white p-8 rounded-[2.5rem] border border-red-200 shadow-sm">
@@ -181,6 +202,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
             </div>
           )}
 
+          {/* TAB TENTANG KAMI */}
           {activeTab === "tentang" && (
             <form action={updateSettings} className="bg-white rounded-[2.5rem] border border-amber-200 shadow-sm overflow-hidden animate-fade-in-up">
               <input type="hidden" name="activeTab" value="tentang" />
@@ -201,6 +223,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
             </form>
           )}
 
+          {/* TAB KONTAK */}
           {activeTab === "kontak" && (
             <div className="space-y-8 animate-fade-in-up">
               <form action={updateSettings} className="bg-white rounded-[2.5rem] border border-sky-200 shadow-sm overflow-hidden">
@@ -239,6 +262,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
             </div>
           )}
 
+          {/* TAB GABUNG PENULIS */}
           {activeTab === "penulis" && (
             <form action={updateSettings} className="bg-white rounded-[2.5rem] border border-emerald-200 shadow-sm overflow-hidden animate-fade-in-up">
               <input type="hidden" name="activeTab" value="penulis" />
@@ -289,6 +313,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
             </form>
           )}
 
+          {/* TAB DASBOR KREATOR */}
           {activeTab === "dasbor_kreator" && (
             <form action={updateSettings} className="bg-white rounded-[2.5rem] border border-purple-200 shadow-sm overflow-hidden animate-fade-in-up">
               <input type="hidden" name="activeTab" value="dasbor_kreator" />

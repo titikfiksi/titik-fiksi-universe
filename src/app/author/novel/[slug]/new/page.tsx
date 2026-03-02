@@ -8,7 +8,14 @@ import SubmitButton from "@/components/SubmitButton";
 import { createChapterByAuthor } from "@/lib/actions";
 import EditorWrapper from "@/components/EditorWrapper";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "TF_UNIVERSE_SECRET_KEY_2026_SAFE");
+// ======================================================================
+// PERBAIKAN TAHAP 1: KEAMANAN JWT (Tanpa Fallback Hardcoded)
+// ======================================================================
+const secretKey = process.env.JWT_SECRET;
+if (!secretKey) {
+  throw new Error("JWT_SECRET tidak ditemukan di environment variables!");
+}
+const JWT_SECRET = new TextEncoder().encode(secretKey);
 
 export default async function AuthorNewChapterPage({ params }: { params: { slug: string } }) {
   const token = cookies().get("admin_session")?.value;

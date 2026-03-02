@@ -3,10 +3,16 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookOpen, LogOut, Settings, HelpCircle, Globe } from "lucide-react";
-// PERBAIKAN: Menggunakan fungsi 'logout' yang benar dari actions.ts
 import { logout } from "@/lib/actions"; 
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "TF_UNIVERSE_SECRET_KEY_2026_SAFE");
+// ======================================================================
+// PERBAIKAN TAHAP 1: KEAMANAN JWT (Tanpa Fallback Hardcoded)
+// ======================================================================
+const secretKey = process.env.JWT_SECRET;
+if (!secretKey) {
+  throw new Error("JWT_SECRET tidak ditemukan di environment variables!");
+}
+const JWT_SECRET = new TextEncoder().encode(secretKey);
 
 export default async function AuthorLayout({ children }: { children: React.ReactNode }) {
   const token = cookies().get("admin_session")?.value;

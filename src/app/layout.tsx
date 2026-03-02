@@ -1,36 +1,39 @@
-import type { Metadata, Viewport } from "next"; 
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { db } from "@/lib/db";
 
-// PERHATIKAN BARIS INI: Kita memanggil Header dan Footer
+// MEMANGGIL KEMBALI KOMPONEN HEADER & FOOTER
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { db } from "@/lib/db"; // Tambahan: Import DB untuk menarik data Setting
 
 const inter = Inter({ subsets: ["latin"] });
 
-// SINKRONISASI: Menarik Site Name dari Database untuk Tab Browser
+// ======================================================================
+// PERBAIKAN: Sabuk Pengaman Metadata (Graceful Degradation)
+// ======================================================================
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = await db.settings.findFirst();
-  const siteName = settings?.siteName || "Titik Fiksi Universe";
-
+  let siteName = "Titik Fiksi Universe"; // Nama default jika database lambat
+  
+  try {
+    const settings = await db.settings.findFirst({ 
+      select: { siteName: true } 
+    });
+    if (settings?.siteName) {
+      siteName = settings.siteName;
+    }
+  } catch (error) {
+    console.error("Warning: Database sibuk, menggunakan nama website default.");
+  }
+  
   return {
     title: {
       default: siteName,
       template: `%s | ${siteName}`,
     },
-    description: "Platform baca novel modern, ringan, dan elegan.",
-    manifest: "/manifest.webmanifest", 
+    description: "Platform membaca dan menulis novel digital terbaik.",
   };
 }
-
-export const viewport: Viewport = {
-  themeColor: "#ffffff", 
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1, 
-  userScalable: false, 
-};
 
 export default function RootLayout({
   children,
@@ -38,14 +41,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className="overflow-x-hidden">
-      <body className={`${inter.className} bg-gray-50 text-gray-900 w-full overflow-x-hidden antialiased flex flex-col min-h-screen`}>
+    <html lang="id">
+      <body className={inter.className}>
         
+        {/* MENAMPILKAN HEADER GLOBAL */}
         <Header />
         
-        <main className="flex-grow w-full">{children}</main>
-        
+        {/* KONTEN HALAMAN (BERANDA, ADMIN, DLL) */}
+        {children}
+
+        {/* MENAMPILKAN FOOTER GLOBAL */}
         <Footer />
+
       </body>
     </html>
   );

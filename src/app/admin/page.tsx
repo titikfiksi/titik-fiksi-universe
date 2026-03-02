@@ -3,25 +3,58 @@ import Link from "next/link";
 import Image from "next/image";
 import { Book, FileText, Eye, MessageSquare, Plus, Settings, Edit } from "lucide-react";
 import { deleteNovel, deleteComment } from "@/lib/actions";
-import DeleteButton from "@/components/DeleteButton"; // IMPORT KOMPONEN BARU
+import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  // OPTIMALISASI: Gunakan _count untuk menghitung bab tanpa membebani server
-  const novels = await db.novel.findMany({ 
-    include: { _count: { select: { chapters: true } } }, 
-    orderBy: { updatedAt: 'desc' } 
-  });
+  // PERBAIKAN FINAL: Kita gunakan Promise.all (Parallel Fetching) yang Super Ringan.
+  // Karena connection_limit=1 di .env sudah dihapus, skrip ini akan mengeksekusi 
+  // semua query ini bersamaan dengan sangat cepat tanpa error timeout.
   
-  const totalNovels = novels.length;
-  const totalChapters = novels.reduce((sum, n) => sum + n._count.chapters, 0);
-  const totalViews = novels.reduce((sum, n) => sum + n.views, 0);
-  const totalComments = await db.comment.count();
+  let totalNovels = 0, totalChapters = 0, totalComments = 0, totalViews = 0;
+  let novels: any[] = [];
+  let recentComments: any[] = [];
 
-  const recentComments = await db.comment.findMany({
-    take: 10, orderBy: { createdAt: 'desc' }, include: { chapter: { include: { novel: true } } }
-  });
+  try {
+    const [
+      countNovels,
+      countChapters,
+      countComments,
+      viewsAggregation,
+      fetchedNovels,
+      fetchedComments
+    ] = await Promise.all([
+      db.novel.count(),
+      db.chapter.count(),
+      db.comment.count(),
+      db.novel.aggregate({ _sum: { views: true } }),
+      db.novel.findMany({
+        select: {
+          id: true, title: true, coverImage: true, views: true, status: true, slug: true,
+          _count: { select: { chapters: true } }
+        },
+        orderBy: { updatedAt: 'desc' } 
+      }),
+      db.comment.findMany({
+        take: 10, 
+        orderBy: { createdAt: 'desc' }, 
+        select: {
+          id: true, name: true, content: true,
+          chapter: { select: { orderIndex: true } }
+        }
+      })
+    ]);
+
+    totalNovels = countNovels;
+    totalChapters = countChapters;
+    totalComments = countComments;
+    totalViews = viewsAggregation._sum.views || 0;
+    novels = fetchedNovels;
+    recentComments = fetchedComments;
+  } catch (error) {
+    console.error("Gagal memuat Dasbor Admin:", error);
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-20">
@@ -67,7 +100,7 @@ export default async function AdminDashboard() {
         <div className="lg:col-span-2 space-y-6">
           <h2 className="text-xl font-black text-gray-900 flex items-center gap-2"><Book size={20} className="text-blue-600"/> Karya Anda</h2>
           {novels.length === 0 ? (
-            <div className="bg-white p-12 text-center rounded-3xl border border-dashed border-gray-300 text-gray-500 font-medium">Belum ada novel yang dibuat.</div>
+            <div className="bg-white p-12 text-center rounded-3xl border border-dashed border-gray-300 text-gray-500 font-medium">Belum ada novel yang dibuat atau gagal dimuat.</div>
           ) : (
             <div className="space-y-4">
               {novels.map(novel => (
@@ -89,7 +122,6 @@ export default async function AdminDashboard() {
                   </div>
                   <div className="flex items-center gap-2 border-t border-gray-100 sm:border-none pt-3 sm:pt-0">
                     <Link href={`/admin/novels/${novel.id}`} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition text-sm">Kelola <Edit size={14}/></Link>
-                    {/* PERBAIKAN: Menghapus className dan iconSize yang tidak dikenali */}
                     <form action={deleteNovel.bind(null, novel.id)}>
                       <DeleteButton message={`Hapus novel "${novel.title}" secara permanen?`} />
                     </form>
@@ -115,7 +147,6 @@ export default async function AdminDashboard() {
                         <span className="font-bold text-gray-900 text-sm block">{comment.name}</span>
                         <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md inline-block mt-1">Bab {comment.chapter.orderIndex}</span>
                       </div>
-                      {/* PERBAIKAN: Menghapus className dan iconSize yang tidak dikenali */}
                       <form action={deleteComment.bind(null, comment.id)}>
                         <DeleteButton message="Hapus komentar ini?" />
                       </form>
