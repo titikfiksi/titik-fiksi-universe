@@ -106,4 +106,5 @@ export default async function AuthorSettingsPage() {
       </div>
     </div>
   );
+
 }

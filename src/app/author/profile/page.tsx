@@ -88,4 +88,5 @@ export default async function AuthorProfilePage() {
       </div>
     </div>
   );
+
 }

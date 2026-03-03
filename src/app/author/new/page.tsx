@@ -192,4 +192,5 @@ export default async function AuthorNewNovelPage() {
       </div>
     </div>
   );
+
 }

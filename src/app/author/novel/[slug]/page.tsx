@@ -190,4 +190,5 @@ export default async function AuthorManageNovelPage({ params }: { params: { slug
       </div>
     </div>
   );
+
 }

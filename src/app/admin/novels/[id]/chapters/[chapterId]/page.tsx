@@ -103,4 +103,5 @@ export default async function EditChapterPage({ params }: { params: { id: string
       </div>
     </div>
   );
+
 }

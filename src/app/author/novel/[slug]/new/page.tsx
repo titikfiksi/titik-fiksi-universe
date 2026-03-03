@@ -97,4 +97,5 @@ export default async function AuthorNewChapterPage({ params }: { params: { slug:
       </div>
     </div>
   );
+
 }

@@ -105,4 +105,5 @@ export default async function NewChapterPage({ params }: { params: { id: string 
       </div>
     </div>
   );
+
 }

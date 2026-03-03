@@ -348,4 +348,5 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
       </div>
     </div>
   );
+
 }

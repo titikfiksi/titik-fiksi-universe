@@ -329,4 +329,5 @@ export default async function ManageNovelPage({ params }: { params: { id: string
       </div>
     </div>
   );
+
 }

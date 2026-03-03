@@ -94,4 +94,5 @@ export default async function ManageAuthorsPage() {
       </div>
     </div>
   );
+
 }

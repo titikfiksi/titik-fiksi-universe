@@ -111,4 +111,5 @@ export default function AuthorGuidePage() {
       </div>
     </div>
   );
+
 }

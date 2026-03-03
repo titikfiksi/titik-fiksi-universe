@@ -128,4 +128,5 @@ export default function NewNovelPage() {
       </div>
     </div>
   );
+
 }

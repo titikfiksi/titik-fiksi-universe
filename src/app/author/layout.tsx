@@ -68,4 +68,5 @@ export default async function AuthorLayout({ children }: { children: React.React
       </main>
     </div>
   );
+
 }

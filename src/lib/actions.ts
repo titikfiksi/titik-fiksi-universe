@@ -7,7 +7,19 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { JWT_SECRET } from "@/lib/auth-config"; 
-import { generateSlug } from "@/lib/utils"; // PERBAIKAN TAHAP 3: Import generator slug
+import { generateSlug } from "@/lib/utils"; 
+
+// ======================================================================
+// FUNGSI BANTUAN: SMART PARTIAL UPDATE
+// ======================================================================
+// Fungsi ini mengecek apakah data dikirim oleh form.
+// Jika TIDAK dikirim (missing), kembalikan undefined (agar Prisma tidak menimpa data lama).
+// Jika dikirim tapi kosong, kembalikan string kosong (agar data dihapus sesuai keinginan user).
+function getFormValue(formData: FormData, key: string): string | undefined {
+  if (!formData.has(key)) return undefined; // Kunci tidak ada? Jangan update!
+  const value = formData.get(key);
+  return value === null ? undefined : (value as string);
+}
 
 // ======================================================================
 // 1. SISTEM LOGIN ADMIN
@@ -137,12 +149,27 @@ export async function createNovel(formData: FormData) {
     const title = formData.get("title") as string; 
     let slug = formData.get("slug") as string; 
     
-    // PERBAIKAN TAHAP 3: Validasi Slug Cerdas di Server
     if (!slug || slug.trim() === "") slug = generateSlug(title);
-    else slug = generateSlug(slug); // Membersihkan input aneh dari user
+    else slug = generateSlug(slug);
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const author = (formData.get("author") as string)?.trim() || "Lutfi Abdulloh"; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
-    const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
+    // Create tetap butuh default string karena tidak bisa undefined
+    const synopsis = (formData.get("synopsis") as string) || ""; 
+    const coverImage = (formData.get("coverImage") as string) || ""; 
+
+    const status = formData.get("status") as string || "Ongoing"; 
+    const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; 
+    const author = (formData.get("author") as string)?.trim() || "Lutfi Abdulloh"; 
+    const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
+    
+    const genres = formData.getAll("genre") as string[]; 
+    const customGenre = formData.get("customGenre") as string; 
+    let allGenres = [...genres]; 
+    if (customGenre && customGenre.trim() !== "") { 
+        const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); 
+        allGenres = [...allGenres, ...customList]; 
+    } 
+    const uniqueGenres = Array.from(new Set(allGenres)); 
+    const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
     
     await db.novel.create({ data: { title, slug, synopsis, coverImage, status, genre, youtubeTrailer, author, authorDonationUrl } }); 
     revalidatePath("/"); revalidatePath("/admin");
@@ -154,21 +181,61 @@ export async function createNovel(formData: FormData) {
   if (success) redirect("/admin"); 
 }
 
+// PERBAIKAN: Menggunakan getFormValue untuk Partial Update
 export async function updateNovel(id: string, formData: FormData) { 
   let success = false;
   try {
-    const title = formData.get("title") as string; 
-    let slug = formData.get("slug") as string; 
+    // 1. Ambil data secara aman (undefined jika tidak ada di form)
+    const title = getFormValue(formData, "title");
+    let slug = getFormValue(formData, "slug");
     
-    // PERBAIKAN TAHAP 3: Validasi Slug
-    if (!slug || slug.trim() === "") slug = generateSlug(title);
-    else slug = generateSlug(slug);
+    // Logika Slug: Hanya generate jika slug dikirim oleh form
+    if (slug !== undefined) {
+       if (slug.trim() === "" && title) slug = generateSlug(title);
+       else slug = generateSlug(slug);
+    }
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const author = (formData.get("author") as string)?.trim() || "Lutfi Abdulloh"; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null;
-    const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
+    const synopsis = getFormValue(formData, "synopsis");
+    const coverImage = getFormValue(formData, "coverImage");
+    const status = getFormValue(formData, "status");
+    const youtubeTrailer = getFormValue(formData, "youtubeTrailer"); // Bisa string, null, atau undefined
+    const author = getFormValue(formData, "author");
+    const authorDonationUrl = getFormValue(formData, "authorDonationUrl");
     
-    await db.novel.update({ where: { id }, data: { title, slug, synopsis, coverImage, status, genre, youtubeTrailer, author, authorDonationUrl } }); 
-    revalidatePath("/"); revalidatePath(`/novel/${slug}`); revalidatePath(`/admin/novels/${id}`); revalidatePath("/admin");
+    // Logika Genre: Hanya update jika ada input genre
+    let genre: string | undefined = undefined;
+    if (formData.has("genre") || formData.has("customGenre")) {
+        const genres = formData.getAll("genre") as string[]; 
+        const customGenre = formData.get("customGenre") as string; 
+        let allGenres = [...genres]; 
+        if (customGenre && customGenre.trim() !== "") { 
+            const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); 
+            allGenres = [...allGenres, ...customList]; 
+        } 
+        const uniqueGenres = Array.from(new Set(allGenres)); 
+        genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
+    }
+    
+    // Object data bersih dari undefined
+    await db.novel.update({ 
+        where: { id }, 
+        data: { 
+            title, 
+            slug, 
+            synopsis, 
+            coverImage, 
+            status, 
+            genre, 
+            youtubeTrailer, 
+            author, 
+            authorDonationUrl 
+        } 
+    }); 
+
+    revalidatePath("/"); revalidatePath(`/admin/novels/${id}`); revalidatePath("/admin");
+    // Jika slug berubah, revalidate path baru, jika tidak, path lama
+    if (slug) revalidatePath(`/novel/${slug}`); 
+    
     success = true;
   } catch (e: any) {
     console.error("Gagal mengupdate novel:", e.message);
@@ -188,7 +255,6 @@ export async function createChapter(novelId: string, novelSlug: string, formData
     const title = formData.get("title") as string; 
     let slug = formData.get("slug") as string; 
     
-    // PERBAIKAN TAHAP 3: Validasi Slug
     if (!slug || slug.trim() === "") slug = generateSlug(title);
     else slug = generateSlug(slug);
 
@@ -196,7 +262,6 @@ export async function createChapter(novelId: string, novelSlug: string, formData
     const isLocked = formData.get("isLocked") === "on"; const isPublished = formData.get("isPublished") === "on"; const payLink = (formData.get("payLink") as string)?.trim() || null; const unlockCode = (formData.get("unlockCode") as string)?.trim() || null; 
     const publishAtString = formData.get("publishAt") as string; const publishAt = publishAtString ? new Date(publishAtString) : new Date();
 
-    // Mencegah duplikasi slug bab
     const existingSlug = await db.chapter.findFirst({ where: { slug }, select: { id: true } }); 
     if (existingSlug) { slug = `${slug}-${Date.now().toString().slice(-4)}`; }
     
@@ -210,22 +275,46 @@ export async function createChapter(novelId: string, novelSlug: string, formData
 export async function updateChapter(chapterId: string, novelId: string, novelSlug: string, formData: FormData) { 
   let success = false;
   try {
-    const title = formData.get("title") as string; 
-    let slug = formData.get("slug") as string; 
+    const title = getFormValue(formData, "title");
+    let slug = getFormValue(formData, "slug");
     
-    // PERBAIKAN TAHAP 3: Validasi Slug
-    if (!slug || slug.trim() === "") slug = generateSlug(title);
-    else slug = generateSlug(slug);
+    if (slug !== undefined) {
+        if (slug.trim() === "" && title) slug = generateSlug(title);
+        else slug = generateSlug(slug);
+    }
 
-    const content = formData.get("content") as string; const orderIndex = parseInt(formData.get("orderIndex") as string) || 1; 
-    const isLocked = formData.get("isLocked") === "on"; const isPublished = formData.get("isPublished") === "on"; const payLink = (formData.get("payLink") as string)?.trim() || null; const unlockCode = (formData.get("unlockCode") as string)?.trim() || null; 
-    const publishAtString = formData.get("publishAt") as string; const publishAt = publishAtString ? new Date(publishAtString) : new Date();
+    // Handle Content specifically
+    let content = undefined;
+    if (formData.has("content")) {
+        content = (formData.get("content") as string) || "<p>Teks tidak terbaca.</p>";
+    }
 
-    const existingSlug = await db.chapter.findFirst({ where: { slug, NOT: { id: chapterId } }, select: { id: true } }); 
-    if (existingSlug) { slug = `${slug}-${Date.now().toString().slice(-4)}`; }
+    const orderIndex = formData.has("orderIndex") ? parseInt(formData.get("orderIndex") as string) : undefined;
+    const isLocked = formData.has("isLocked") ? formData.get("isLocked") === "on" : undefined;
+    const isPublished = formData.has("isPublished") ? formData.get("isPublished") === "on" : undefined;
     
-    await db.chapter.update({ where: { id: chapterId }, data: { title, slug, orderIndex, content: content || "<p>Teks tidak terbaca.</p>", isLocked, isPublished, payLink, unlockCode, publishAt } }); 
-    revalidatePath(`/novel/${novelSlug}/${slug}`); revalidatePath(`/admin/novels/${novelId}`); 
+    const payLink = getFormValue(formData, "payLink");
+    const unlockCode = getFormValue(formData, "unlockCode");
+    
+    let publishAt = undefined;
+    if (formData.has("publishAt")) {
+        const publishAtString = formData.get("publishAt") as string;
+        publishAt = publishAtString ? new Date(publishAtString) : new Date();
+    }
+
+    if (slug) {
+        const existingSlug = await db.chapter.findFirst({ where: { slug, NOT: { id: chapterId } }, select: { id: true } }); 
+        if (existingSlug) { slug = `${slug}-${Date.now().toString().slice(-4)}`; }
+    }
+    
+    await db.chapter.update({ 
+        where: { id: chapterId }, 
+        data: { title, slug, orderIndex, content, isLocked, isPublished, payLink, unlockCode, publishAt } 
+    }); 
+
+    revalidatePath(`/novel/${novelSlug}`); // Revalidate parent novel page
+    if (slug) revalidatePath(`/novel/${novelSlug}/${slug}`); 
+    revalidatePath(`/admin/novels/${novelId}`); 
     success = true;
   } catch (e: any) { throw new Error("Gagal mengedit bab."); }
   if (success) redirect(`/admin/novels/${novelId}`);
@@ -335,10 +424,26 @@ export async function createNovelByAuthor(formData: FormData) {
     if (!slug || slug.trim() === "") slug = generateSlug(title);
     else slug = generateSlug(slug);
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
+    // Create tetap harus default string jika kosong
+    const synopsis = (formData.get("synopsis") as string) || ""; 
+    const coverImage = (formData.get("coverImage") as string) || ""; 
+    
+    const status = formData.get("status") as string || "Ongoing"; 
+    const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; 
+    const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null; 
+    
     const user = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
     const authorName = user?.name || "Penulis Tanpa Nama";
-    const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
+    
+    const genres = formData.getAll("genre") as string[]; 
+    const customGenre = formData.get("customGenre") as string; 
+    let allGenres = [...genres]; 
+    if (customGenre && customGenre.trim() !== "") { 
+        const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); 
+        allGenres = [...allGenres, ...customList]; 
+    } 
+    const uniqueGenres = Array.from(new Set(allGenres)); 
+    const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
     
     await db.novel.create({ data: { title, slug, synopsis, coverImage, status, genre, youtubeTrailer, author: authorName, authorDonationUrl, userId } }); 
     revalidatePath("/"); revalidatePath("/author");
@@ -347,6 +452,7 @@ export async function createNovelByAuthor(formData: FormData) {
   if (success) redirect("/author"); 
 }
 
+// PERBAIKAN: Update Novel Author dengan Partial Update (Aman dari Penimpaan)
 export async function updateNovelByAuthor(id: string, formData: FormData) { 
   const token = cookies().get("admin_session")?.value;
   if (!token) throw new Error("Unauthorized");
@@ -358,18 +464,52 @@ export async function updateNovelByAuthor(id: string, formData: FormData) {
     const novel = await db.novel.findUnique({ where: { id }, select: { userId: true } });
     if (!novel || novel.userId !== userId) throw new Error("Unauthorized");
 
-    const title = formData.get("title") as string; 
-    let slug = formData.get("slug") as string; 
+    // Gunakan getFormValue agar undefined jika field tidak dikirim (mencegah overwrite)
+    const title = getFormValue(formData, "title");
+    let slug = getFormValue(formData, "slug");
     
-    // PERBAIKAN TAHAP 3: Validasi Slug
-    if (!slug || slug.trim() === "") slug = generateSlug(title);
-    else slug = generateSlug(slug);
+    if (slug !== undefined) {
+        if (slug.trim() === "" && title) slug = generateSlug(title);
+        else slug = generateSlug(slug);
+    }
 
-    const synopsis = formData.get("synopsis") as string; const coverImage = formData.get("coverImage") as string; const status = formData.get("status") as string || "Ongoing"; const youtubeTrailer = (formData.get("youtubeTrailer") as string)?.trim() || null; const authorDonationUrl = (formData.get("authorDonationUrl") as string)?.trim() || null;
-    const genres = formData.getAll("genre") as string[]; const customGenre = formData.get("customGenre") as string; let allGenres = [...genres]; if (customGenre && customGenre.trim() !== "") { const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); allGenres = [...allGenres, ...customList]; } const uniqueGenres = Array.from(new Set(allGenres)); const genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
+    const synopsis = getFormValue(formData, "synopsis");
+    const coverImage = getFormValue(formData, "coverImage");
+    const status = getFormValue(formData, "status");
+    const youtubeTrailer = getFormValue(formData, "youtubeTrailer");
+    const authorDonationUrl = getFormValue(formData, "authorDonationUrl");
     
-    await db.novel.update({ where: { id }, data: { title, slug, synopsis, coverImage, status, genre, youtubeTrailer, authorDonationUrl } }); 
-    revalidatePath("/"); revalidatePath(`/novel/${slug}`); revalidatePath(`/author/novel/${slug}`);
+    // Genre Logic: Hanya update jika ada input
+    let genre: string | undefined = undefined;
+    if (formData.has("genre") || formData.has("customGenre")) {
+        const genres = formData.getAll("genre") as string[]; 
+        const customGenre = formData.get("customGenre") as string; 
+        let allGenres = [...genres]; 
+        if (customGenre && customGenre.trim() !== "") { 
+            const customList = customGenre.split(",").map(g => g.trim()).filter(g => g !== ""); 
+            allGenres = [...allGenres, ...customList]; 
+        } 
+        const uniqueGenres = Array.from(new Set(allGenres)); 
+        genre = uniqueGenres.length > 0 ? uniqueGenres.join(", ") : "Fiksi";
+    }
+    
+    await db.novel.update({ 
+        where: { id }, 
+        data: { 
+            title, 
+            slug, 
+            synopsis, 
+            coverImage, 
+            status, 
+            genre, 
+            youtubeTrailer, 
+            authorDonationUrl 
+        } 
+    }); 
+
+    revalidatePath("/"); revalidatePath(`/author/novel/${slug}`);
+    if (slug) revalidatePath(`/novel/${slug}`);
+    
     success = true;
   } catch (e: any) { throw new Error("Gagal update novel."); } 
   if (success) redirect("/author"); 
@@ -389,7 +529,6 @@ export async function createChapterByAuthor(novelId: string, novelSlug: string, 
     const title = formData.get("title") as string; 
     let slug = formData.get("slug") as string; 
     
-    // PERBAIKAN TAHAP 3: Validasi Slug
     if (!slug || slug.trim() === "") slug = generateSlug(title);
     else slug = generateSlug(slug);
 
@@ -418,22 +557,44 @@ export async function updateChapterByAuthor(chapterId: string, novelId: string, 
     const novel = await db.novel.findUnique({ where: { id: novelId }, select: { userId: true } });
     if (!novel || novel.userId !== userId) throw new Error("Unauthorized");
 
-    const title = formData.get("title") as string; 
-    let slug = formData.get("slug") as string; 
+    const title = getFormValue(formData, "title");
+    let slug = getFormValue(formData, "slug");
     
-    // PERBAIKAN TAHAP 3: Validasi Slug
-    if (!slug || slug.trim() === "") slug = generateSlug(title);
-    else slug = generateSlug(slug);
+    if (slug !== undefined) {
+        if (slug.trim() === "" && title) slug = generateSlug(title);
+        else slug = generateSlug(slug);
+    }
 
-    const content = formData.get("content") as string; const orderIndex = parseInt(formData.get("orderIndex") as string) || 1; 
-    const isLocked = formData.get("isLocked") === "on"; const isPublished = formData.get("isPublished") === "on"; const payLink = (formData.get("payLink") as string)?.trim() || null; const unlockCode = (formData.get("unlockCode") as string)?.trim() || null; 
-    const publishAtString = formData.get("publishAt") as string; const publishAt = publishAtString ? new Date(publishAtString) : new Date();
+    let content = undefined;
+    if (formData.has("content")) {
+        content = (formData.get("content") as string) || "<p>Teks tidak terbaca.</p>";
+    }
 
-    const existingSlug = await db.chapter.findFirst({ where: { slug, NOT: { id: chapterId } }, select: { id: true } }); 
-    if (existingSlug) { slug = `${slug}-${Date.now().toString().slice(-4)}`; }
+    const orderIndex = formData.has("orderIndex") ? parseInt(formData.get("orderIndex") as string) : undefined;
+    const isLocked = formData.has("isLocked") ? formData.get("isLocked") === "on" : undefined;
+    const isPublished = formData.has("isPublished") ? formData.get("isPublished") === "on" : undefined;
+    const payLink = getFormValue(formData, "payLink");
+    const unlockCode = getFormValue(formData, "unlockCode");
     
-    await db.chapter.update({ where: { id: chapterId }, data: { title, slug, orderIndex, content: content || "<p>Teks tidak terbaca.</p>", isLocked, isPublished, payLink, unlockCode, publishAt } }); 
-    revalidatePath(`/novel/${novelSlug}/${slug}`); revalidatePath(`/author/novel/${novelSlug}`); 
+    let publishAt = undefined;
+    if (formData.has("publishAt")) {
+        const publishAtString = formData.get("publishAt") as string;
+        publishAt = publishAtString ? new Date(publishAtString) : new Date();
+    }
+
+    if (slug) {
+        const existingSlug = await db.chapter.findFirst({ where: { slug, NOT: { id: chapterId } }, select: { id: true } }); 
+        if (existingSlug) { slug = `${slug}-${Date.now().toString().slice(-4)}`; }
+    }
+    
+    await db.chapter.update({ 
+        where: { id: chapterId }, 
+        data: { title, slug, orderIndex, content, isLocked, isPublished, payLink, unlockCode, publishAt } 
+    }); 
+
+    revalidatePath(`/novel/${novelSlug}`); // Revalidate novel page
+    if (slug) revalidatePath(`/novel/${novelSlug}/${slug}`);
+    revalidatePath(`/author/novel/${novelSlug}`); 
     success = true;
   } catch (e: any) { throw new Error("Gagal mengedit: " + e.message); }
   if(success) redirect(`/author/novel/${novelSlug}`);
@@ -452,7 +613,11 @@ export async function deleteAuthorSocialByAuthor(id: string, novelId: string, no
 export async function updateAuthorProfile(userId: string, formData: FormData) {
   let success = false;
   try {
-    const name = formData.get("name") as string; const email = formData.get("email") as string; const currentPassword = formData.get("currentPassword") as string; const newPassword = formData.get("newPassword") as string;
+    const name = getFormValue(formData, "name");
+    const email = getFormValue(formData, "email");
+    const currentPassword = formData.get("currentPassword") as string; 
+    const newPassword = formData.get("newPassword") as string;
+    
     const user = await db.user.findUnique({ where: { id: userId }, select: { password: true } });
     if (!user) throw new Error("Akun tidak ditemukan");
 
@@ -468,5 +633,6 @@ export async function updateAuthorProfile(userId: string, formData: FormData) {
   } catch (error: any) { throw new Error(error.message || "Gagal update profil"); }
   if (success) redirect("/author/settings");
 }
+
 
 export async function replyCommentByAdmin(chapterId: string, novelId: string, formData: FormData) { try { const content = formData.get("content") as string; const replyTo = formData.get("replyTo") as string; if (content) { await db.comment.create({ data: { name: "🛡️ Admin", content: replyTo ? `Membalas @${replyTo}: ${content}` : content, chapterId: chapterId } }); revalidatePath(`/admin/novels/${novelId}`); } } catch (error: any) { throw new Error("Gagal memproses."); } }

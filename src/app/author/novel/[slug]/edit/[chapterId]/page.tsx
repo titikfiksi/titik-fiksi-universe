@@ -131,4 +131,5 @@ export default async function AuthorEditChapterPage({ params }: { params: { slug
       </div>
     </div>
   );
+
 }
