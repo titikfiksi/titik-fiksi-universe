@@ -7,6 +7,8 @@ import Image from "next/image";
 import { ArrowLeft, Plus, Edit, BookOpen, Link as LinkIcon, Save, Image as ImageIcon, Layout, Lock, PenTool, AtSign, Heart, MessageSquare, Reply, Crown, Star } from "lucide-react";
 import { deleteChapter, addExternalLink, deleteExternalLink, updateNovel, addAuthorSocial, deleteAuthorSocial, deleteComment, replyCommentByAdmin, toggleFeaturedNovel } from "@/lib/actions";
 import DeleteButton from "@/components/DeleteButton";
+import TitleSlugInput from "@/components/TitleSlugInput"; // Pastikan komponen ini ada
+import SubmitButton from "@/components/SubmitButton"; // Pastikan komponen ini ada
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "TF_UNIVERSE_SECRET_KEY_2026_SAFE");
 
@@ -71,16 +73,23 @@ export default async function ManageNovelPage({ params }: { params: { id: string
           <form action={updateNovel.bind(null, novel.id)} className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
               <h2 className="font-bold text-gray-800 flex items-center gap-2"><Edit size={18}/> Informasi Novel & Penulis</h2>
-              <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 transition shadow-md">
-                <Save size={16}/> Simpan
-              </button>
+              <SubmitButton text="Simpan Perubahan" icon={<Save size={16}/>} />
             </div>
             <div className="p-8 space-y-6">
+              
+              {/* IMPLEMENTASI TitleSlugInput AGAR SLUG OTOMATIS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Judul</label>
-                  <input type="text" name="title" defaultValue={novel.title} required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-600 font-bold" />
-                </div>
+                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-10 gap-4">
+                    <TitleSlugInput 
+                        defaultTitle={novel.title}
+                        defaultSlug={novel.slug}
+                        titleLabel="Judul Novel"
+                        slugLabel="Slug URL (Link)"
+                    />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-1"><PenTool size={12}/> Penulis Utama</label>
                   <input type="text" name="author" defaultValue={(novel as any).author || "Lutfi Abdulloh"} required className="w-full p-3 bg-emerald-50 border border-emerald-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-600 font-bold text-emerald-900" />
@@ -185,7 +194,6 @@ export default async function ManageNovelPage({ params }: { params: { id: string
                       <summary className="text-xs font-bold text-indigo-600 cursor-pointer list-none flex items-center gap-1 hover:text-indigo-700 w-fit select-none [&::-webkit-details-marker]:hidden">
                         <Reply size={14}/> Balas sebagai Admin
                       </summary>
-                      {/* PERBAIKAN: novel.slug DIHAPUS DARI BIND INI */}
                       <form action={replyCommentByAdmin.bind(null, comment.chapterId, novel.id)} className="mt-3 flex gap-2 items-center">
                         <input type="hidden" name="replyTo" value={comment.name} />
                         <input type="text" name="content" placeholder={`Balas @${comment.name} sebagai Admin...`} required className="flex-1 p-2.5 text-sm bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-600 transition" />
@@ -261,6 +269,7 @@ export default async function ManageNovelPage({ params }: { params: { id: string
             </div>
           </div>
           
+          {/* PANEL UPDATE COVER */}
           <form action={updateNovel.bind(null, novel.id)} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
              <div className="flex items-center gap-2 mb-2 pb-4 border-b border-gray-100">
                <ImageIcon className="text-purple-600" size={18}/>
@@ -277,117 +286,18 @@ export default async function ManageNovelPage({ params }: { params: { id: string
                 </div>
              )}
              <input type="url" name="coverImage" defaultValue={novel.coverImage || ""} placeholder="Link Gambar Cover" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-600 text-sm" />
+             
+             {/* PENTING: Gunakan title yang sudah ada agar tidak tertimpa kosong */}
              <input type="hidden" name="title" value={novel.title} />
-             <button type="submit" className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-purple-700 transition shadow-sm">
-               <Plus size={16}/> Update Cover
-             </button>
+             
+             <SubmitButton text="Update Cover" icon={<Plus size={16}/>} customClass="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-purple-700 transition shadow-sm" />
           </form>
 
+          {/* PANEL LINK EKSTERNAL */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
              <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2 pb-4 border-b border-gray-100"><LinkIcon className="text-indigo-600" size={18}/> Link External</h2>
              <form action={addExternalLink.bind(null, novel.id, novel.slug)} className="space-y-3 mb-6">
-                  <input type="text" name="title" placeholder="Contoh: Baca di KBM" required import { db } from "@/lib/db";
-import Link from "next/link";
-import { Book, Edit, Plus, Star, Eye, Crown, Search } from "lucide-react";
-import { toggleFeaturedNovel } from "@/lib/actions";
-
-export const dynamic = "force-dynamic";
-
-export default async function AdminNovelsListPage() {
-  // OPTIMASI TAHAP 3: Hindari mengambil seluruh data novel (seperti sinopsis dll)
-  // Hanya ambil field (kolom) yang benar-benar akan dirender ke dalam HTML
-  const novels = await db.novel.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      title: true,
-      coverImage: true,
-      views: true,
-      author: true,
-      isFeatured: true,
-      _count: { select: { chapters: true } }
-    }
-  });
-
-  // FUNGSI PEMBUNGKUS (Solusi untuk mengatasi Error TypeScript Vercel)
-  const handleToggleFeatured = async (id: string, formData: FormData) => {
-    "use server";
-    await toggleFeaturedNovel(id, 7);
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto pb-20 animate-fade-in-up">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-8 mb-8">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 flex items-center gap-3">
-            <Book className="text-blue-600" /> Semua Koleksi Novel
-          </h1>
-          <p className="text-gray-500 font-medium mt-1">Kelola publikasi dan promosikan karya terbaik Anda.</p>
-        </div>
-        <Link href="/admin/novel/new" className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg">
-          <Plus size={20} /> Tulis Novel Baru
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4">
-        {novels.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-200">
-            <Book size={48} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500 font-bold">Belum ada novel yang dibuat.</p>
-          </div>
-        ) : (
-          novels.map((novel) => (
-            <div key={novel.id} className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-center gap-6">
-              {/* Cover Kecil */}
-              <div className="w-20 h-28 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100 relative">
-                {novel.coverImage && (
-                  <img src={novel.coverImage} alt="cover" className="w-full h-full object-cover" />
-                )}
-              </div>
-
-              {/* Info Novel */}
-              <div className="flex-1 text-center md:text-left">
-                <h3 className="font-black text-gray-900 text-lg leading-tight mb-1">{novel.title}</h3>
-                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
-                  <span className="flex items-center gap-1"><Eye size={14}/> {novel.views} Views</span>
-                  <span className="flex items-center gap-1 text-blue-500">{novel._count.chapters} Bab</span>
-                  <span className="text-gray-300">|</span>
-                  <span>Penulis: {novel.author}</span>
-                </div>
-              </div>
-
-              {/* Tombol Aksi & Sorotan */}
-              <div className="flex items-center gap-3">
-                {/* PERBAIKAN: Menggunakan fungsi pembungkus handleToggleFeatured */}
-                <form action={handleToggleFeatured.bind(null, novel.id)}>
-                  <button 
-                    type="submit"
-                    title={novel.isFeatured ? "Hapus dari Sorotan" : "Jadikan Sorotan Utama"}
-                    className={`p-3 rounded-2xl transition-all border ${
-                      novel.isFeatured 
-                      ? "bg-amber-500 text-white border-amber-600 shadow-lg shadow-amber-200" 
-                      : "bg-gray-50 text-gray-400 border-gray-100 hover:text-amber-500 hover:bg-amber-50"
-                    }`}
-                  >
-                    <Crown size={22} className={novel.isFeatured ? "fill-white" : ""} />
-                  </button>
-                </form>
-
-                <Link 
-                  href={`/admin/novels/${novel.id}`} 
-                  className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
-                >
-                  <Edit size={22} />
-                </Link>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-
-}className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600" />
+                  <input type="text" name="title" placeholder="Contoh: Baca di KBM" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600" />
                   <input type="url" name="url" placeholder="https://..." required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-600" />
                   <button type="submit" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-indigo-700 transition shadow-sm">
                     <Plus size={16}/> Tambah Link
@@ -405,6 +315,7 @@ export default async function AdminNovelsListPage() {
               </div>
           </div>
 
+          {/* PANEL SOSIAL MEDIA */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
              <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2 pb-4 border-b border-gray-100"><AtSign className="text-emerald-600" size={18}/> Sosial Media Penulis</h2>
              <form action={addAuthorSocial.bind(null, novel.id, novel.slug)} className="space-y-3 mb-6">
@@ -430,5 +341,4 @@ export default async function AdminNovelsListPage() {
       </div>
     </div>
   );
-
 }
