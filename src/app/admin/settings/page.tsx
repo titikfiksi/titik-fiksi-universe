@@ -1,52 +1,423 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { updateSettings, addSocialLink, deleteSocialLink, addDonationLink, deleteDonationLink, addSponsor, deleteSponsor } from "@/lib/actions";
-import { Settings, Type, Link as LinkIcon, Save, Plus, Heart, MessageCircle, PenTool, Info, Home, ShoppingBag, LayoutDashboard, UserCog, Lock, ShieldAlert } from "lucide-react";
+import {
+  updateSettings,
+  addSocialLink,
+  deleteSocialLink,
+  addDonationLink,
+  deleteDonationLink,
+  addSponsor,
+  deleteSponsor,
+} from "@/lib/actions";
+import {
+  Settings as SettingsIcon,
+  Type,
+  Link as LinkIcon,
+  Save,
+  Plus,
+  Heart,
+  MessageCircle,
+  PenTool,
+  Info,
+  Home,
+  ShoppingBag,
+  LayoutDashboard,
+  UserCog,
+  Lock,
+  ShieldAlert,
+} from "lucide-react";
 import DeleteButton from "@/components/DeleteButton";
 import SubmitButton from "@/components/SubmitButton";
 import MultiImageInput from "@/components/MultiImageInput";
 import PasswordInput from "@/components/PasswordInput";
+import { Suspense, memo, useMemo } from "react";
 
-export const dynamic = "force-dynamic";
+// ===== Typed Data Structures for Strong Typing ====
 
-export default async function SettingsPage({ searchParams }: { searchParams: { tab?: string } }) {
-  
-  // ======================================================================
-  // PERBAIKAN FINAL: Menggunakan $transaction (Bukan Promise.all)
-  // Ini memastikan ke-4 query ini HANYA memakan 1 koneksi database,
-  // sehingga sangat aman saat tombol "Simpan" ditekan dan halaman di-refresh.
-  // ======================================================================
-  let settings = null;
-  let socials = [];
-  let donations = [];
-  let sponsors = [];
+type SettingsData = {
+  siteName?: string | null;
+  runningText?: string | null;
+  isActive?: boolean | null;
+  copyrightText?: string | null;
+  adminEmail?: string | null;
+  email?: string | null;
+  visiPenulis?: string | null;
+  kekuatanPembaca?: string | null;
+  whatsappNumber?: string | null;
+  isOpenForWriters?: boolean | null;
+  writerHeroTitle?: string | null;
+  writerHeroDesc?: string | null;
+  writerBenefit1Title?: string | null;
+  writerBenefit1Desc?: string | null;
+  writerBenefit2Title?: string | null;
+  writerBenefit2Desc?: string | null;
+  writerBenefit3Title?: string | null;
+  writerBenefit3Desc?: string | null;
+  writerBenefit4Title?: string | null;
+  writerBenefit4Desc?: string | null;
+  writerTerms?: string | null;
+  authorAnnounce1Title?: string | null;
+  authorAnnounce1Desc?: string | null;
+  authorAnnounce2Title?: string | null;
+  authorAnnounce2Desc?: string | null;
+  promoPremiumTitle?: string | null;
+  promoPremiumDesc?: string | null;
+};
 
+type Social = {
+  id: string;
+  platform: string;
+  url: string;
+};
+
+type Sponsor = {
+  id: string;
+  title: string;
+  imageUrl: string; // comma separated string
+  linkUrl: string;
+  description: string;
+};
+
+type Donation = {
+  id: string;
+  platform: string;
+  url: string;
+};
+
+// ================== Sidebar Tab =====================
+
+const SIDEBAR_TABS = [
+  {
+    key: "beranda",
+    label: "Beranda",
+    icon: <Home size={18} />,
+    class: "bg-blue-50 text-blue-600",
+    hoverClass: "hover:bg-gray-50 hover:text-gray-900",
+  },
+  {
+    key: "akun",
+    label: "Pengaturan Akun",
+    icon: <UserCog size={18} />,
+    class: "bg-red-50 text-red-600",
+    hoverClass: "hover:bg-gray-50 hover:text-gray-900",
+  },
+  {
+    key: "toko",
+    label: "Toko & Dukungan",
+    icon: <ShoppingBag size={18} />,
+    class: "bg-indigo-50 text-indigo-600",
+    hoverClass: "hover:bg-gray-50 hover:text-gray-900",
+  },
+  {
+    key: "tentang",
+    label: "Tentang Kami",
+    icon: <Info size={18} />,
+    class: "bg-amber-50 text-amber-600",
+    hoverClass: "hover:bg-gray-50 hover:text-gray-900",
+  },
+  {
+    key: "kontak",
+    label: "Kontak",
+    icon: <MessageCircle size={18} />,
+    class: "bg-sky-50 text-sky-600",
+    hoverClass: "hover:bg-gray-50 hover:text-gray-900",
+  },
+  {
+    key: "penulis",
+    label: "Gabung Penulis",
+    icon: <PenTool size={18} />,
+    class: "bg-emerald-50 text-emerald-600",
+    hoverClass: "hover:bg-gray-50 hover:text-gray-900",
+  },
+  {
+    key: "dasbor_kreator",
+    label: "Dasbor Kreator",
+    icon: <LayoutDashboard size={18} />,
+    class: "bg-purple-50 text-purple-600",
+    hoverClass: "hover:bg-gray-50 hover:text-gray-900",
+  },
+];
+
+// ================ Data Fetch Utility ================
+// Optimized: Use Promise.all and limit the fields fetched with select for each query.
+
+async function fetchSettingsData() {
   try {
-    const results = await db.$transaction([
-      db.settings.findFirst(),
-      db.socialLink.findMany(),
-      db.donationLink.findMany(),
-      db.sponsor.findMany()
+    // Only fetch what's actually rendered — use select for memory efficiency
+    const [settings, socials, donations, sponsors] = await Promise.all([
+      db.settings.findFirst({
+        select: {
+          siteName: true,
+          runningText: true,
+          isActive: true,
+          copyrightText: true,
+          adminEmail: true,
+          email: true,
+          visiPenulis: true,
+          kekuatanPembaca: true,
+          whatsappNumber: true,
+          isOpenForWriters: true,
+          writerHeroTitle: true,
+          writerHeroDesc: true,
+          writerBenefit1Title: true,
+          writerBenefit1Desc: true,
+          writerBenefit2Title: true,
+          writerBenefit2Desc: true,
+          writerBenefit3Title: true,
+          writerBenefit3Desc: true,
+          writerBenefit4Title: true,
+          writerBenefit4Desc: true,
+          writerTerms: true,
+          authorAnnounce1Title: true,
+          authorAnnounce1Desc: true,
+          authorAnnounce2Title: true,
+          authorAnnounce2Desc: true,
+          promoPremiumTitle: true,
+          promoPremiumDesc: true,
+        }
+      }),
+      db.socialLink.findMany({ select: { id: true, platform: true, url: true } }),
+      db.donationLink.findMany({ select: { id: true, platform: true, url: true } }),
+      db.sponsor.findMany({
+        select: { id: true, title: true, imageUrl: true, linkUrl: true, description: true }
+      }),
     ]);
-    settings = results[0];
-    socials = results[1];
-    donations = results[2];
-    sponsors = results[3];
+    return {
+      settings: settings as SettingsData,
+      socials: socials as Social[],
+      donations: donations as Donation[],
+      sponsors: sponsors as Sponsor[],
+    };
   } catch (error) {
     console.error("Gagal memuat data pengaturan:", error);
+    return {
+      settings: {},
+      socials: [],
+      donations: [],
+      sponsors: [],
+    };
   }
+}
 
-  const activeTab = searchParams.tab || "beranda";
+// ================ Sidebar Navigation ================
 
+const SidebarTabs = memo(function SidebarTabs({ activeTab }: { activeTab: string }) {
   return (
-    <div className="max-w-6xl mx-auto pb-20 animate-fade-in-up">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-8 mb-8">
+    <nav className="md:col-span-1 bg-white border border-gray-200 rounded-[2rem] p-4 shadow-sm sticky top-24 flex flex-col gap-2">
+      {SIDEBAR_TABS.map(tab => (
+        <Link
+          key={tab.key}
+          href={`?tab=${tab.key}`}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
+            activeTab === tab.key
+              ? tab.class
+              : `text-gray-600 ${tab.hoverClass}`
+          }`}
+        >
+          {tab.icon} {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+});
+
+// ================ Per-Tab Panels ================
+
+const BerandaTab = memo(function BerandaTab({ settings }: { settings: SettingsData }) {
+  return (
+    <form
+      action={updateSettings}
+      className="bg-white rounded-[2.5rem] border border-gray-200 shadow-sm overflow-hidden animate-fade-in-up"
+    >
+      <input type="hidden" name="activeTab" value="beranda" />
+      <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+        <h2 className="font-black text-gray-800 flex items-center gap-2">
+          <Home className="text-blue-600" /> Setup Beranda & Sistem
+        </h2>
+        <SubmitButton
+          text="Simpan Beranda"
+          icon={<Save size={16} />}
+          customClass="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 transition shadow-md"
+        />
+      </div>
+      <div className="p-8 space-y-6">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 flex items-center gap-3"><Settings className="text-blue-600"/> Pengaturan Sistem</h1>
-          <p className="text-gray-500 font-medium mt-1">Kategori panel admin disusun presisi sesuai Menu Header Publik.</p>
+          <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">
+            Nama Website
+          </label>
+          <div className="relative">
+            <Type className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              name="siteName"
+              defaultValue={settings?.siteName ?? ""}
+              required
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-600 font-bold"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">
+            Pengumuman (Running Text)
+          </label>
+          <input
+            type="text"
+            name="runningText"
+            defaultValue={settings?.runningText ?? ""}
+            placeholder="Teks berjalan di beranda..."
+            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+          />
+        </div>
+        <div className="flex items-center justify-between p-5 bg-blue-50 rounded-2xl border border-blue-200">
+          <div>
+            <span className="font-bold text-blue-900 block text-sm">
+              Status Website (Maintenance Mode)
+            </span>
+            <span className="text-xs text-blue-700">
+              Buka akses publik. Matikan jika sedang perbaikan.
+            </span>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              name="isActive"
+              defaultChecked={!!settings?.isActive}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-blue-200 peer-focus:ring-2 peer-focus:ring-blue-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-blue-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
+          </label>
+        </div>
+        <div>
+          <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">
+            Teks Hak Cipta (Footer)
+          </label>
+          <input
+            type="text"
+            name="copyrightText"
+            defaultValue={settings?.copyrightText ?? ""}
+            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+          />
         </div>
       </div>
+    </form>
+  );
+});
 
+const AkunTab = memo(function AkunTab({ settings }: { settings: SettingsData }) {
+  return (
+    <form
+      action={updateSettings}
+      className="bg-white rounded-[2.5rem] border border-red-200 shadow-sm overflow-hidden animate-fade-in-up"
+    >
+      <input type="hidden" name="activeTab" value="akun" />
+      <div className="p-6 border-b border-red-100 bg-red-50/50 flex items-center justify-between">
+        <h2 className="font-black text-red-900 flex items-center gap-2">
+          <UserCog className="text-red-600" /> Keamanan Akun Admin
+        </h2>
+        <SubmitButton
+          text="Simpan Akun"
+          icon={<Save size={16} />}
+          customClass="bg-red-600 text-white px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-red-700 transition shadow-md"
+        />
+      </div>
+      <div className="p-8 space-y-6">
+        <div className="bg-red-50 border border-red-100 p-5 rounded-2xl flex items-start gap-3">
+          <ShieldAlert className="text-red-500 flex-shrink-0" size={24} />
+          <p className="text-sm font-medium text-red-800">
+            Ini adalah kredensial utama untuk mengakses pintu belakang (Admin Door). <strong>Wajib masukkan Sandi Saat Ini</strong> jika Anda mengubah Email atau Sandi Baru.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest">
+              Email Admin (Login)
+            </label>
+            <input
+              type="email"
+              name="adminEmail"
+              defaultValue={
+                settings?.adminEmail ?? settings?.email ?? ""
+              }
+              required
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500 font-bold"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest">
+              Password Baru (Opsional)
+            </label>
+            <PasswordInput
+              name="newAdminPassword"
+              placeholder="Kosongkan jika tidak diubah"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500 font-bold placeholder:font-normal text-sm"
+            />
+          </div>
+        </div>
+        <div className="pt-6 border-t border-gray-100 w-full md:w-1/2">
+          <label className="block text-[10px] font-black text-red-600 flex items-center gap-1 uppercase tracking-widest mb-2">
+            <Lock size={12} /> Konfirmasi Password Saat Ini
+          </label>
+          <PasswordInput
+            name="oldAdminPassword"
+            placeholder="Wajib diisi untuk menyimpan perubahan"
+            className="w-full px-4 py-3 bg-red-50 border border-red-200 rounded-xl outline-none focus:ring-2 focus:ring-red-600 text-sm placeholder:text-red-300"
+          />
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function TokoTab({
+  donations,
+  sponsors,
+}: {
+  donations: Donation[];
+  sponsors: Sponsor[];
+}) {
+  return (
+    <div className="space-y-8 animate-fade-in-up">
+      <div className="bg-white p-8 rounded-[2.5rem] border border-red-200 shadow-sm">
+        <h3 className="text-xl font-black text-gray-900 flex items-center gap-2 mb-6">
+          <Heart className="text-red-500" /> Link Donasi Web
+        </h3>
+        <form action={addDonationLink} className="space-y-3 mb-6">
+          <input
+            type="text"
+            name="platform"
+            placeholder="Platform (Saweria/Trakteer)"
+            required
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500"
+          />
+          <input
+            type="url"
+            name="url"
+            placeholder="URL Link Donasi"
+            required
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500"
+          />
+          <SubmitButton
+            text="Tambah Donasi"
+            icon={<Plus size={16} />}
+            customClass="w-full bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-md flex items-center justify-center gap-2 py-3"
+          />
+        </form>
+        <div className="space-y-2 pt-2">
+          {donations.map((d) => (
+            <div
+              key={d.id}
+              className="flex items-center justify-between p-4 bg-red-50 rounded-2xl border border-red-100"
+            >
+              <span className="font-bold text-red-900 text-sm uppercase">
+                {d.platform}
+              </span>
+              <form action={deleteDonationLink.bind(null, d.id)}>
+                <DeleteButton message={`Hapus donasi ${d.platform}?`} />
+              </form>
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
         
         {/* SIDEBAR TAB PENGATURAN */}

@@ -1,31 +1,28 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { db } from "@/lib/db";
-
-// MEMANGGIL KEMBALI KOMPONEN HEADER & FOOTER
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { db } from "@/lib/db";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], display: "swap" });
 
-// ======================================================================
-// PERBAIKAN: Sabuk Pengaman Metadata (Graceful Degradation)
-// ======================================================================
 export async function generateMetadata(): Promise<Metadata> {
-  let siteName = "Titik Fiksi Universe"; // Nama default jika database lambat
-  
+  // Default site name if db is not available
+  const defaultSiteName = "Titik Fiksi Universe";
+  let siteName = defaultSiteName;
+
   try {
-    const settings = await db.settings.findFirst({ 
-      select: { siteName: true } 
+    const settings = await db.settings.findFirst({
+      select: { siteName: true },
     });
-    if (settings?.siteName) {
-      siteName = settings.siteName;
+    if (settings?.siteName && typeof settings.siteName === "string") {
+      siteName = settings.siteName.trim() || defaultSiteName;
     }
-  } catch (error) {
-    console.error("Warning: Database sibuk, menggunakan nama website default.");
+  } catch {
+    // Graceful fallback - no need for noisy logging
   }
-  
+
   return {
     title: {
       default: siteName,
@@ -37,22 +34,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
       <body className={inter.className}>
-        
-        {/* MENAMPILKAN HEADER GLOBAL */}
         <Header />
-        
-        {/* KONTEN HALAMAN (BERANDA, ADMIN, DLL) */}
         {children}
-
-        {/* MENAMPILKAN FOOTER GLOBAL */}
         <Footer />
-
       </body>
     </html>
   );
